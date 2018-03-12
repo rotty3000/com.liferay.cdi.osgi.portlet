@@ -7,20 +7,23 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.context.BeforeDestroyed;
+import javax.enterprise.context.Destroyed;
 import javax.enterprise.context.Initialized;
 import javax.enterprise.event.Observes;
-import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 import javax.portlet.Portlet;
 
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CdiOsgiPortletExtension implements Extension {
 
-	List<Entry<Portlet, Dictionary<String, Object>>> portlets = new CopyOnWriteArrayList<>();
-	List<ServiceRegistration<Portlet>> registrations = new CopyOnWriteArrayList<>();
+	private static final Logger _log = LoggerFactory.getLogger(CdiOsgiPortletExtension.class);
+
+	private List<Entry<Portlet, Dictionary<String, Object>>> portlets = new CopyOnWriteArrayList<>();
+	private List<ServiceRegistration<Portlet>> registrations = new CopyOnWriteArrayList<>();
 
 	//
 	// TODO populate 'portlets' list
@@ -35,15 +38,17 @@ public class CdiOsgiPortletExtension implements Extension {
 	}
 
 	void applicationScopedBeforeDestroyed(
-		@Observes @BeforeDestroyed(ApplicationScoped.class) Object ignore) {
+		@Observes @Destroyed(ApplicationScoped.class) Object ignore) {
 
-		registrations.removeIf(
-			r -> {
-				r.unregister();
+		if (registrations != null) {
+			registrations.removeIf(
+				r -> {
+					r.unregister();
 
-				return true;
-			}
-		);
+					return true;
+				}
+			);
+		}
 	}
 
 	ServiceRegistration<Portlet> register(
