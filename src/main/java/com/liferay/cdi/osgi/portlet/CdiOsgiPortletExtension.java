@@ -22,6 +22,10 @@ public class CdiOsgiPortletExtension implements Extension {
 	List<Entry<Portlet, Dictionary<String, Object>>> portlets = new CopyOnWriteArrayList<>();
 	List<ServiceRegistration<Portlet>> registrations = new CopyOnWriteArrayList<>();
 
+	//
+	// TODO populate 'portlets' list
+	//
+
 	void applicationScopedInitialized(
 		@Observes @Initialized(ApplicationScoped.class) Object ignore, BundleContext bc) {
 
