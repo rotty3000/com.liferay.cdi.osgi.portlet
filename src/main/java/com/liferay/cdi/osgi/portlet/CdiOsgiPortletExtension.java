@@ -34,7 +34,9 @@ import org.apache.pluto.container.bean.processor.ConfigSummary;
 import org.apache.pluto.container.bean.processor.InvalidAnnotationException;
 import org.apache.pluto.container.bean.processor.PortletAnnotationRecognizer;
 import org.apache.pluto.container.bean.processor.PortletInvoker;
+import org.apache.pluto.container.om.portlet.InitParam;
 import org.apache.pluto.container.om.portlet.PortletDefinition;
+import org.apache.pluto.container.om.portlet.Supports;
 import org.apache.pluto.container.om.portlet.impl.ConfigurationHolder;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
@@ -180,7 +182,67 @@ public class CdiOsgiPortletExtension implements Extension {
 	Dictionary<String, Object> toDictionary(PortletDefinition pd) {
 		Dictionary<String, Object> properties = new Hashtable<>();
 
-		// TODO convert this to portlet service properties
+		properties.put("javax.portlet.description", pd.getDescriptions());
+		properties.put("javax.portlet.name", pd.getPortletName());
+		properties.put("javax.portlet.display-name", pd.getDisplayNames());
+
+		for (InitParam param : pd.getInitParams()) {
+			properties.put(
+				"javax.portlet.init-param." + param.getParamName(),
+				param.getParamValue());
+		}
+
+		properties.put("javax.portlet.expiration-cache", pd.getExpirationCache());
+		properties.put(
+			"javax.portlet.mime-type",
+			pd.getSupports().stream().map(
+				s -> s.getMimeType()
+			).collect(Collectors.toList())
+		);
+		properties.put(
+			"javax.portlet.portlet-mode",
+			pd.getSupports().stream().map(
+				s -> s.getMimeType() + ";" + s.getPortletModes().stream().collect(Collectors.joining(","))
+			).collect(Collectors.toList())
+		);
+		properties.put(
+			"javax.portlet.window-state",
+			pd.getSupports().stream().map(
+				s -> s.getMimeType() + ";" + s.getWindowStates().stream().collect(Collectors.joining(","))
+			).collect(Collectors.toList())
+		);
+		properties.put("javax.portlet.resource-bundle", pd.getResourceBundle());
+		properties.put("javax.portlet.info.title", pd.getPortletInfo().getTitle());
+		properties.put("javax.portlet.info.short-title", pd.getPortletInfo().getShortTitle());
+		properties.put("javax.portlet.info.keywords", pd.getPortletInfo().getKeywords());
+		properties.put("javax.portlet.preferences", pd.getPortletPreferences());
+		//properties.put("javax.portlet.preferences", "classpath:<path_to_file_in_jar>");
+		properties.put(
+			"javax.portlet.security-role-ref",
+			pd.getSecurityRoleRefs().stream().map(
+				srr -> srr.getRoleName() + ',' + srr.getRoleLink()
+			).collect(Collectors.toList())
+		);
+		properties.put(
+			"javax.portlet.supported-processing-event",
+			pd.getSupportedProcessingEvents().stream().map(
+				pe -> pe.getQualifiedName()
+			).map(
+				qn -> qn.getLocalPart() + ((qn.getNamespaceURI() != null) ? ";" + qn.getNamespaceURI() : "")
+			).collect(Collectors.toList())
+		);
+		properties.put(
+			"javax.portlet.supported-publishing-event",
+			pd.getSupportedPublishingEvents().stream().map(
+				pe -> pe.getQualifiedName()
+			).map(
+				qn -> qn.getLocalPart() + ((qn.getNamespaceURI() != null) ? ";" + qn.getNamespaceURI() : "")
+			).collect(Collectors.toList())
+		);
+		properties.put(
+			"javax.portlet.supported-public-render-parameter",
+			pd.getSupportedPublicRenderParameters()
+		);
 
 		return properties;
 	}
