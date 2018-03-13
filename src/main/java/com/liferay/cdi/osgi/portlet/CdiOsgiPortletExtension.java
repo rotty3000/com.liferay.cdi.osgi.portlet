@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,9 +35,7 @@ import org.apache.pluto.container.bean.processor.ConfigSummary;
 import org.apache.pluto.container.bean.processor.InvalidAnnotationException;
 import org.apache.pluto.container.bean.processor.PortletAnnotationRecognizer;
 import org.apache.pluto.container.bean.processor.PortletInvoker;
-import org.apache.pluto.container.om.portlet.InitParam;
 import org.apache.pluto.container.om.portlet.PortletDefinition;
-import org.apache.pluto.container.om.portlet.Supports;
 import org.apache.pluto.container.om.portlet.impl.ConfigurationHolder;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
@@ -182,21 +181,80 @@ public class CdiOsgiPortletExtension implements Extension {
 	Dictionary<String, Object> toDictionary(PortletDefinition pd) {
 		Dictionary<String, Object> properties = new Hashtable<>();
 
-		properties.put("javax.portlet.description", pd.getDescriptions());
-		properties.put("javax.portlet.name", pd.getPortletName());
-		properties.put("javax.portlet.display-name", pd.getDisplayNames());
+		Locale locale = Locale.getDefault();
 
+		properties.put("javax.portlet.cache-scope", pd.getCacheScope()); // Not supported by Liferay
+		properties.put("javax.portlet.mime-type", pd.getConfiguredMimeTypes());
+		properties.put(
+			"javax.portlet.container-runtime-options",  // Not supported by Liferay
+			pd.getContainerRuntimeOptions().stream().map(
+				cro -> cro.getName() + ";" + cro.getValues().stream().collect(Collectors.joining(","))
+			).collect(Collectors.toList())
+		);
+		properties.put(
+			"javax.portlet.dependencies",  // Not yet supported by Liferay
+			pd.getDependencies().stream().map(
+				d -> d.getName() + ";" + d.getScope() + "," + d.getVersion()
+			).collect(Collectors.toList())
+		);
+		properties.put("javax.portlet.description", pd.getDescription(locale));
+		properties.put(
+			"javax.portlet.descriptions",
+			pd.getDescriptions().stream().map(
+				d -> d.getText() + ";" + d.getLang() + "," + d.getLocale()
+			).collect(Collectors.toList())
+		);
+		properties.put("javax.portlet.display-name", pd.getDisplayName(locale));
+		properties.put(
+			"javax.portlet.display-names",
+			pd.getDisplayNames().stream().map(
+				dn -> dn.getText() + ";" + dn.getLang() + "," + dn.getLocale()
+			).collect(Collectors.toList())
+		);
+		properties.put("javax.portlet.expiration-cache", pd.getExpirationCache());
+		properties.put("javax.portlet.file-size-threshold", pd.getFileSizeThreshold());
 		pd.getInitParams().stream().forEach(ip ->
 			properties.put(
 				"javax.portlet.init-param." + ip.getParamName(),
 				ip.getParamValue())
 		);
 
-		properties.put("javax.portlet.expiration-cache", pd.getExpirationCache());
+		properties.put("javax.portlet.location", pd.getLocation());
+		properties.put("javax.portlet.max-file-size", pd.getMaxFileSize());
+		properties.put("javax.portlet.max-request-size", pd.getMaxRequestSize());
+		properties.put("javax.portlet.info.keywords", pd.getPortletInfo().getKeywords());
+		properties.put("javax.portlet.info.short-title", pd.getPortletInfo().getShortTitle());
+		properties.put("javax.portlet.info.title", pd.getPortletInfo().getTitle());
+		properties.put("javax.portlet.name", pd.getPortletName());
+		// TODO figure out how to serialize these (xmlbind?)
+		//properties.put("javax.portlet.preferences", pd.getPortletPreferences());
+		//properties.put("javax.portlet.preferences", "classpath:<path_to_file_in_jar>");
+		properties.put("javax.portlet.resource-bundle", pd.getResourceBundle());
 		properties.put(
-			"javax.portlet.mime-type",
-			pd.getSupports().stream().map(
-				s -> s.getMimeType()
+			"javax.portlet.security-role-ref",
+			pd.getSecurityRoleRefs().stream().map(
+				srr -> srr.getRoleName() + ',' + srr.getRoleLink()
+			).collect(Collectors.toList())
+		);
+		properties.put("javax.portlet.supported-locales", pd.getSupportedLocales());
+		properties.put(
+			"javax.portlet.supported-processing-event",
+			pd.getSupportedProcessingEvents().stream().map(
+				pe -> pe.getQualifiedName()
+			).map(
+				qn -> qn.getLocalPart() + ((qn.getNamespaceURI() != null) ? ";" + qn.getNamespaceURI() : "")
+			).collect(Collectors.toList())
+		);
+		properties.put(
+			"javax.portlet.supported-public-render-parameter",
+			pd.getSupportedPublicRenderParameters()
+		);
+		properties.put(
+			"javax.portlet.supported-publishing-event",
+			pd.getSupportedPublishingEvents().stream().map(
+				pe -> pe.getQualifiedName()
+			).map(
+				qn -> qn.getLocalPart() + ((qn.getNamespaceURI() != null) ? ";" + qn.getNamespaceURI() : "")
 			).collect(Collectors.toList())
 		);
 		properties.put(
@@ -210,41 +268,6 @@ public class CdiOsgiPortletExtension implements Extension {
 			pd.getSupports().stream().map(
 				s -> s.getMimeType() + ";" + s.getWindowStates().stream().collect(Collectors.joining(","))
 			).collect(Collectors.toList())
-		);
-		properties.put("javax.portlet.resource-bundle", pd.getResourceBundle());
-		properties.put("javax.portlet.info.title", pd.getPortletInfo().getTitle());
-		properties.put("javax.portlet.info.short-title", pd.getPortletInfo().getShortTitle());
-		properties.put("javax.portlet.info.keywords", pd.getPortletInfo().getKeywords());
-
-		// TODO figure out how to serialize these (xmlbind?)
-		//properties.put("javax.portlet.preferences", pd.getPortletPreferences());
-		//properties.put("javax.portlet.preferences", "classpath:<path_to_file_in_jar>");
-
-		properties.put(
-			"javax.portlet.security-role-ref",
-			pd.getSecurityRoleRefs().stream().map(
-				srr -> srr.getRoleName() + ',' + srr.getRoleLink()
-			).collect(Collectors.toList())
-		);
-		properties.put(
-			"javax.portlet.supported-processing-event",
-			pd.getSupportedProcessingEvents().stream().map(
-				pe -> pe.getQualifiedName()
-			).map(
-				qn -> qn.getLocalPart() + ((qn.getNamespaceURI() != null) ? ";" + qn.getNamespaceURI() : "")
-			).collect(Collectors.toList())
-		);
-		properties.put(
-			"javax.portlet.supported-publishing-event",
-			pd.getSupportedPublishingEvents().stream().map(
-				pe -> pe.getQualifiedName()
-			).map(
-				qn -> qn.getLocalPart() + ((qn.getNamespaceURI() != null) ? ";" + qn.getNamespaceURI() : "")
-			).collect(Collectors.toList())
-		);
-		properties.put(
-			"javax.portlet.supported-public-render-parameter",
-			pd.getSupportedPublicRenderParameters()
 		);
 
 		/*
