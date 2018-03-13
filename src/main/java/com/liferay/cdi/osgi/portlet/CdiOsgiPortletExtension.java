@@ -244,6 +244,57 @@ public class CdiOsgiPortletExtension implements Extension {
 			pd.getSupportedPublicRenderParameters()
 		);
 
+		/*
+		 * TODO Liferay specific ones...
+		/liferay-portlet-app/portlet/icon 	com.liferay.portlet.icon=<String>
+		/liferay-portlet-app/portlet/virtual-path 	com.liferay.portlet.virtual-path=<String>
+		/liferay-portlet-app/portlet/struts-path 	com.liferay.portlet.struts-path=<String>
+		/liferay-portlet-app/portlet/parent-struts-path 	com.liferay.portlet.parent-struts-path=<String>
+		/liferay-portlet-app/portlet/configuration-path 	com.liferay.portlet.configuration-path=<String>
+		/liferay-portlet-app/portlet/friendly-url-mapping 	com.liferay.portlet.friendly-url-mapping=<String>
+		/liferay-portlet-app/portlet/friendly-url-routes 	com.liferay.portlet.friendly-url-routes=<String>
+		/liferay-portlet-app/portlet/control-panel-entry-category 	com.liferay.portlet.control-panel-entry-category=<String>
+		/liferay-portlet-app/portlet/control-panel-entry-weight 	com.liferay.portlet.control-panel-entry-weight=<double>
+		/liferay-portlet-app/portlet/preferences-company-wide 	com.liferay.portlet.preferences-company-wide=<boolean>
+		/liferay-portlet-app/portlet/preferences-unique-per-layout 	com.liferay.portlet.preferences-unique-per-layout=<boolean>
+		/liferay-portlet-app/portlet/preferences-owned-by-group 	com.liferay.portlet.preferences-owned-by-group=<boolean>
+		/liferay-portlet-app/portlet/use-default-template 	com.liferay.portlet.use-default-template=<boolean>
+		/liferay-portlet-app/portlet/show-portlet-access-denied 	com.liferay.portlet.show-portlet-access-denied=<boolean>
+		/liferay-portlet-app/portlet/show-portlet-inactive 	com.liferay.portlet.show-portlet-inactive=<boolean>
+		/liferay-portlet-app/portlet/action-url-redirect 	com.liferay.portlet.action-url-redirect=<boolean>
+		/liferay-portlet-app/portlet/restore-current-view 	com.liferay.portlet.restore-current-view=<boolean>
+		/liferay-portlet-app/portlet/maximize-edit 	com.liferay.portlet.maximize-edit=<boolean>
+		/liferay-portlet-app/portlet/maximize-help 	com.liferay.portlet.maximize-help=<boolean>
+		/liferay-portlet-app/portlet/pop-up-print 	com.liferay.portlet.pop-up-print=<boolean>
+		/liferay-portlet-app/portlet/layout-cacheable 	com.liferay.portlet.layout-cacheable=<boolean>
+		/liferay-portlet-app/portlet/instanceable 	com.liferay.portlet.instanceable=<boolean>
+		/liferay-portlet-app/portlet/remoteable 	com.liferay.portlet.remoteable=<boolean>
+		/liferay-portlet-app/portlet/scopeable 	com.liferay.portlet.scopeable=<boolean>
+		/liferay-portlet-app/portlet/single-page-application 	com.liferay.portlet.single-page-application=<boolean>
+		/liferay-portlet-app/portlet/user-principal-strategy 	com.liferay.portlet.user-principal-strategy=<String>
+		/liferay-portlet-app/portlet/private-request-attributes 	com.liferay.portlet.private-request-attributes=<boolean>
+		/liferay-portlet-app/portlet/private-session-attributes 	com.liferay.portlet.private-session-attributes=<boolean>
+		/liferay-portlet-app/portlet/autopropagated-parameters 	com.liferay.portlet.autopropagated-parameters=<String>2
+		/liferay-portlet-app/portlet/requires-namespaced-parameters 	com.liferay.portlet.requires-namespaced-parameters=<boolean>
+		/liferay-portlet-app/portlet/action-timeout 	com.liferay.portlet.action-timeout=<int>
+		/liferay-portlet-app/portlet/render-timeout 	com.liferay.portlet.render-timeout=<int>
+		/liferay-portlet-app/portlet/render-weight 	com.liferay.portlet.render-weight=<int>
+		/liferay-portlet-app/portlet/ajaxable 	com.liferay.portlet.ajaxable=<boolean>
+		/liferay-portlet-app/portlet/header-portal-css 	com.liferay.portlet.header-portal-css=<String>2
+		/liferay-portlet-app/portlet/header-portlet-css 	com.liferay.portlet.header-portlet-css=<String>2
+		/liferay-portlet-app/portlet/header-portal-javascript 	com.liferay.portlet.header-portal-javascript=<String>2
+		/liferay-portlet-app/portlet/header-portlet-javascript 	com.liferay.portlet.header-portlet-javascript=<String>2
+		/liferay-portlet-app/portlet/footer-portal-css 	com.liferay.portlet.footer-portal-css=<String>2
+		/liferay-portlet-app/portlet/footer-portlet-css 	com.liferay.portlet.footer-portlet-css=<String>2
+		/liferay-portlet-app/portlet/footer-portal-javascript 	com.liferay.portlet.footer-portal-javascript=<String>2
+		/liferay-portlet-app/portlet/footer-portlet-javascript 	com.liferay.portlet.footer-portlet-javascript=<String>2
+		/liferay-portlet-app/portlet/css-class-wrapper 	com.liferay.portlet.css-class-wrapper=<String>
+		/liferay-portlet-app/portlet/facebook-integration 	com.liferay.portlet.facebook-integration=<String>
+		/liferay-portlet-app/portlet/add-default-resource 	com.liferay.portlet.add-default-resource=<boolean>
+		/liferay-portlet-app/portlet/system 	com.liferay.portlet.system=<boolean>
+		/liferay-portlet-app/portlet/active 	com.liferay.portlet.active=<boolean>
+		 */
+
 		return properties;
 	}
 
