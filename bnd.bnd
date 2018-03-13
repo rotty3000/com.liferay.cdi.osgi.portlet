@@ -1,9 +1,16 @@
--conditionalpackage: \
-	org.apache.pluto.container.bean.processor,\
-	org.apache.pluto.container.om.*
-Import-Package: \
+Import-Package:\
 	!eu.infomas.annotation,\
 	!javax.xml.bind.*,\
+	!javax.xml.namespace,\
+	!javax.xml.parsers,\
+	!javax.xml.stream,\
+	!javax.xml.xpath,\
+	!org.w3c.dom,\
+	!org.xml.sax,\
 	*
+
+-conditionalpackage:\
+	org.apache.pluto.container.bean.processor,\
+	org.apache.pluto.container.om.*
 
 -contract: JavaPortlet

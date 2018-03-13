@@ -53,9 +53,9 @@
 
 	<dependencies>
 		<dependency>
-		<groupId>javax.portlet</groupId>
-		<artifactId>portlet-api</artifactId>
-		<version>3.0.0</version>
+			<groupId>javax.portlet</groupId>
+			<artifactId>portlet-api</artifactId>
+			<version>3.0.0</version>
 		</dependency>
 		<dependency>
 			<groupId>javax.enterprise</groupId>
@@ -72,17 +72,18 @@
 			<groupId>org.apache.portals.pluto</groupId>
 			<artifactId>pluto-container-api</artifactId>
 			<version>3.0.0</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.portals.pluto</groupId>
 			<artifactId>pluto-container</artifactId>
 			<version>3.0.0</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
 			<version>1.7.0</version>
-			<optional>true</optional>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
