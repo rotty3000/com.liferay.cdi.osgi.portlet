@@ -1,9 +1,14 @@
 package com.liferay.cdi.osgi.portlet;
 
+import java.lang.annotation.Annotation;
+import java.util.AbstractMap;
+import java.util.Arrays;
 import java.util.Dictionary;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
@@ -11,13 +16,28 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.Destroyed;
 import javax.enterprise.context.Initialized;
 import javax.enterprise.event.Observes;
+import javax.enterprise.inject.spi.AfterDeploymentValidation;
+import javax.enterprise.inject.spi.AfterTypeDiscovery;
+import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
+import javax.enterprise.inject.spi.ProcessAnnotatedType;
 import javax.portlet.Portlet;
+import javax.portlet.annotations.PortletApplication;
+import javax.portlet.annotations.PortletConfiguration;
+import javax.portlet.annotations.PortletConfigurations;
+import javax.portlet.annotations.PortletLifecycleFilter;
+import javax.portlet.annotations.PortletListener;
+import javax.portlet.annotations.PortletPreferencesValidator;
 
-import org.apache.pluto.container.PortletInvokerService;
+import org.apache.pluto.container.bean.processor.AnnotatedMethodStore;
+import org.apache.pluto.container.bean.processor.ConfigSummary;
+import org.apache.pluto.container.bean.processor.InvalidAnnotationException;
+import org.apache.pluto.container.bean.processor.PortletAnnotationRecognizer;
+import org.apache.pluto.container.bean.processor.PortletInvoker;
 import org.apache.pluto.container.om.portlet.PortletDefinition;
 import org.apache.pluto.container.om.portlet.impl.ConfigurationHolder;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,30 +46,51 @@ public class CdiOsgiPortletExtension implements Extension {
 
 	private static final Logger _log = LoggerFactory.getLogger(CdiOsgiPortletExtension.class);
 
-	private List<Entry<Portlet, Dictionary<String, Object>>> portlets = new CopyOnWriteArrayList<>();
-	private List<ServiceRegistration<Portlet>> registrations = new CopyOnWriteArrayList<>();
+	private final List<Entry<Portlet, Dictionary<String, Object>>> portlets = new CopyOnWriteArrayList<>();
+	private final List<ServiceRegistration<Portlet>> registrations = new CopyOnWriteArrayList<>();
+	private final Set<Class<?>> portletConfigurationBeanClasses = ConcurrentHashMap.newKeySet();
+	private final BundleContext bc = FrameworkUtil.getBundle(getClass()).getBundleContext();
+	private final ConfigSummary configSummary = new ConfigSummary();
+	private final AnnotatedMethodStore methodStore = new AnnotatedMethodStore(configSummary);
+	private final ConfigurationHolder holder = new ConfigurationHolder();
+	private final PAR par;
 
-	private volatile BundleContext bc;
+	private final List<Class<? extends Annotation>> CONFIGRATION_ANNOTATIONS = Arrays.asList(
+		PortletApplication.class,
+		PortletConfiguration.class,
+		PortletConfigurations.class,
+		PortletLifecycleFilter.class,
+		PortletListener.class,
+		PortletPreferencesValidator.class
+	);
 
-	//
-	// TODO populate 'portlets' list
-	//
+	class PAR extends PortletAnnotationRecognizer {
 
-	void buildPortlets(Set<Class<?>> classes) throws Exception {
+		public PAR(AnnotatedMethodStore pms, ConfigSummary summary) {
+			super(pms, summary);
+		}
+
+		@Override
+		public void checkForMethodAnnotations(Class<?> aClass) {
+			super.checkForMethodAnnotations(aClass);
+		}
+
+	}
+
+	public CdiOsgiPortletExtension() {
+		holder.setConfigSummary(configSummary);
+		holder.setMethodStore(methodStore);
+		par = new PAR(methodStore, configSummary);
+	}
+
+	void afterTypeDiscovery(@Observes AfterTypeDiscovery atd, BeanManager bm) {
 		try {
-			// scan for method annotations
-
-			ConfigurationHolder holder = new ConfigurationHolder();
-			//holder.scanMethodAnnotations(ctx);
-
-			// Read the annotated configuration
-
-			if (classes != null) {
-				holder.processConfigAnnotations(classes);
-			}
+			holder.processConfigAnnotations(portletConfigurationBeanClasses);
 
 			if (_log.isDebugEnabled()) {
-				_log.debug("CdiOsgiPortletExtension on {} for annotations {}", bc.getBundle(), classes);
+				_log.debug(
+					"CdiOsgiPortletExtension on {} for annotations {}",
+					bc.getBundle(), portletConfigurationBeanClasses);
 			}
 
 			holder.validate();
@@ -57,37 +98,39 @@ public class CdiOsgiPortletExtension implements Extension {
 			// Reconcile the bean config with the explicitly declared portlet configuration.
 
 			holder.reconcileBeanConfig();
+			holder.instantiatePortlets(bm);
 
-			// If portlets have been found in this servlet context, launch the portlet servlets
+			// If portlets have been found create the Portlet instances
 
 			for (PortletDefinition pd : holder.getPad().getPortlets()) {
-				String pn = pd.getPortletName();
-				String mapping = PortletInvokerService.URIPREFIX + pn;
-				String servletName = pn + "_PS3";
-
 				if (_log.isDebugEnabled()) {
-					StringBuilder sb = new StringBuilder();
-					sb.append("Adding Portlet: ");
-					sb.append(pn);
-					sb.append(", servlet name: ").append(servletName);
-					sb.append(", mapping: ").append(mapping);
-					_log.debug(sb.toString());
+					_log.debug("Creating Portlet {}", pd.getPortletName());
 				}
 
-				// make portlet
+				portlets.add(
+					new AbstractMap.SimpleEntry<>(
+						new PortletInvoker(holder.getMethodStore(), pd.getPortletName()),
+						toDictionary(pd)));
 			}
 		}
 		catch (Exception e) {
-			e.printStackTrace();
+			_log.error(e.getMessage(), e);
 		}
+	}
+
+	void afterDeploymentValidation(@Observes AfterDeploymentValidation adv, BeanManager bm) {
+		par.getStateScopedConfig().activate(bm);
+		par.getSessionScopedConfig().activate(bm);
 	}
 
 	void applicationScopedInitialized(
 		@Observes @Initialized(ApplicationScoped.class) Object ignore, BundleContext bc) {
 
-		registrations = portlets.stream().map(
-			entry -> register(bc, entry)
-		).collect(Collectors.toList());
+		registrations.addAll(
+			portlets.stream().map(
+				entry -> register(bc, entry)
+			).collect(Collectors.toList())
+		);
 	}
 
 	void applicationScopedBeforeDestroyed(
@@ -104,10 +147,42 @@ public class CdiOsgiPortletExtension implements Extension {
 		}
 	}
 
+	void processAnnotatedType(@Observes ProcessAnnotatedType<?> pat) {
+		try {
+			par.checkAnnotatedType(pat);
+
+			Class<?> javaClass = pat.getAnnotatedType().getJavaClass();
+
+			// TODO This assumes every portlet method class is also somehow
+			// bean annotated
+
+			par.checkForMethodAnnotations(javaClass);
+
+			for (Class<? extends Annotation> anno : CONFIGRATION_ANNOTATIONS) {
+				if (javaClass.getAnnotation(anno) != null) {
+					portletConfigurationBeanClasses.add(javaClass);
+
+					break;
+				}
+			}
+		}
+		catch (InvalidAnnotationException e) {
+			_log.error(e.getMessage(), e);
+		}
+	}
+
 	ServiceRegistration<Portlet> register(
 		BundleContext bc, Entry<Portlet, Dictionary<String, Object>> entry) {
 
 		return bc.registerService(Portlet.class, entry.getKey(), entry.getValue());
+	}
+
+	Dictionary<String, Object> toDictionary(PortletDefinition pd) {
+		Dictionary<String, Object> properties = new Hashtable<>();
+
+		// TODO convert this to portlet service properties
+
+		return properties;
 	}
 
 }
