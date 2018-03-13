@@ -186,11 +186,11 @@ public class CdiOsgiPortletExtension implements Extension {
 		properties.put("javax.portlet.name", pd.getPortletName());
 		properties.put("javax.portlet.display-name", pd.getDisplayNames());
 
-		for (InitParam param : pd.getInitParams()) {
+		pd.getInitParams().stream().forEach(ip ->
 			properties.put(
-				"javax.portlet.init-param." + param.getParamName(),
-				param.getParamValue());
-		}
+				"javax.portlet.init-param." + ip.getParamName(),
+				ip.getParamValue())
+		);
 
 		properties.put("javax.portlet.expiration-cache", pd.getExpirationCache());
 		properties.put(
@@ -215,8 +215,11 @@ public class CdiOsgiPortletExtension implements Extension {
 		properties.put("javax.portlet.info.title", pd.getPortletInfo().getTitle());
 		properties.put("javax.portlet.info.short-title", pd.getPortletInfo().getShortTitle());
 		properties.put("javax.portlet.info.keywords", pd.getPortletInfo().getKeywords());
-		properties.put("javax.portlet.preferences", pd.getPortletPreferences());
+
+		// TODO figure out how to serialize these (xmlbind?)
+		//properties.put("javax.portlet.preferences", pd.getPortletPreferences());
 		//properties.put("javax.portlet.preferences", "classpath:<path_to_file_in_jar>");
+
 		properties.put(
 			"javax.portlet.security-role-ref",
 			pd.getSecurityRoleRefs().stream().map(
