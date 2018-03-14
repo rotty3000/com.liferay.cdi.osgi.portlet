@@ -24,12 +24,23 @@ import org.jboss.weld.bootstrap.api.helpers.SimpleServiceRegistry;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
 import org.jboss.weld.bootstrap.spi.BeansXml;
 import org.jboss.weld.ejb.spi.EjbDescriptor;
+import org.jboss.weld.resources.spi.ResourceLoader;
+import org.jboss.weld.serialization.spi.ProxyServices;
 
 public class MockBeanDeploymentArchive implements BeanDeploymentArchive {
 
-	public MockBeanDeploymentArchive(String id, String... beanClasses) {
+	public <T extends ResourceLoader & ProxyServices> MockBeanDeploymentArchive(
+		String id, T loader, String... beanClasses) {
+
 		_id = id;
 		_beanClasses = Arrays.asList(beanClasses);
+
+		_services = new SimpleServiceRegistry();
+
+		if (loader != null) {
+			_services.add(ResourceLoader.class, loader);
+			_services.add(ProxyServices.class, loader);
+		}
 	}
 
 	@Override
@@ -64,6 +75,6 @@ public class MockBeanDeploymentArchive implements BeanDeploymentArchive {
 
 	private final List<String> _beanClasses;
 	private final String _id;
-	private final ServiceRegistry _services = new SimpleServiceRegistry();
+	private final ServiceRegistry _services;
 
 }

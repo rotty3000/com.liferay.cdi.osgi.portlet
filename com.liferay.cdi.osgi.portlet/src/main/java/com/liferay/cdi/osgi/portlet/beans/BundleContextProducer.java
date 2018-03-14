@@ -1,4 +1,4 @@
-package com.liferay.cdi.osgi.portlet;
+package com.liferay.cdi.osgi.portlet.beans;
 
 import javax.enterprise.context.Dependent;
 import javax.enterprise.inject.Produces;

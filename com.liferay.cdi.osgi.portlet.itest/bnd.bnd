@@ -16,8 +16,8 @@ p = com.liferay.cdi.osgi.portlet.test
 
 # Finally, include the `-make'd` jars in the test bundle. This also happens to trigger the make function
 # so don't forget to list new jars here as new bnd files are added into the recipe dir.
-#-includeresource:\
-#	tb1.jar
+-includeresource:\
+	testbundle1.jar
 
 # Don't forget that we had to coax the `maven-jar-plugin` NOT to include the `sub-bundle` packages in
 # the root bundle:

@@ -14,8 +14,16 @@ Import-Package:\
 	javax.enterprise.inject.spi;version="[1, 3)",\
 	*
 
+X-Bean-Classes:\
+	${classes;\
+		NAMED;!com.liferay.cdi.osgi.portlet.impl.*;\
+		NAMED;!org.apache.pluto.container.om.portlet.impl.*;\
+		NAMED;!org.apache.pluto.container.om.portlet10.impl.*;\
+		NAMED;!org.apache.pluto.container.om.portlet20.impl.*;\
+		NAMED;!org.apache.pluto.container.om.portlet30.impl.*}
+
 -conditionalpackage:\
-	org.apache.pluto.container.bean.processor,\
+	org.apache.pluto.container.bean.processor.*,\
 	org.apache.pluto.container.om.*
 
 -contract: JavaPortlet

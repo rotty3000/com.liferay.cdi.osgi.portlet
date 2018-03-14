@@ -14,8 +14,11 @@
 
 package com.liferay.cdi.osgi.portlet.test.mock;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.ServiceLoader;
 import java.util.Set;
 
 import javax.enterprise.inject.Any;
@@ -27,16 +30,65 @@ import org.jboss.weld.bootstrap.WeldBootstrap;
 import org.jboss.weld.bootstrap.spi.BeanDeploymentArchive;
 import org.jboss.weld.bootstrap.spi.Deployment;
 import org.jboss.weld.bootstrap.spi.Metadata;
+import org.jboss.weld.resources.spi.ResourceLoader;
+import org.jboss.weld.serialization.spi.ProxyServices;
 import org.junit.Assert;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkUtil;
 
 public class MockCdiContainer implements AutoCloseable {
 
-	public MockCdiContainer(String name, String... beanClasses) {
-		this(name, Collections.emptyList(), beanClasses);
+	static Bundle bundle = FrameworkUtil.getBundle(MockCdiContainer.class);
+
+	private static String[] toClasses(Bundle[] bundles) {
+		return Arrays.stream(bundles).map(
+			b -> (String)b.getHeaders().get("X-Bean-Classes")
+		).filter(s -> Objects.nonNull(s)).flatMap(
+			s -> Arrays.stream(s.split(","))
+		).toArray(String[]::new);
 	}
 
-	public MockCdiContainer(String name, List<Metadata<Extension>> extensions, String... beanClasses) {
-		_bda = new MockBeanDeploymentArchive(name, beanClasses);
+	public static Bundle[] bundles(Bundle... bundles) {
+		List<Bundle> bs = new ArrayList<>(Arrays.asList(bundles));
+
+		bs.add(bundle);
+
+		Arrays.stream(
+			bundle.getBundleContext().getBundles()
+		).filter(
+			b ->
+				"com.liferay.cdi.osgi.portlet".equals(b.getSymbolicName()) ||
+				"org.jboss.weld.osgi-bundle".equals(b.getSymbolicName())
+		).forEach(bs::add);
+
+		return bs.toArray(new Bundle[0]);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <T extends ResourceLoader & ProxyServices> T loader(Bundle... bundles) {
+		return (T)new BundleResourcesLoader(bundles);
+	}
+
+	public MockCdiContainer(String name, String... beanClasses) {
+		this(name, loader(bundles()), beanClasses);
+	}
+
+	public MockCdiContainer(String name, Bundle... bundles) {
+		this(name, loader(bundles), toClasses(bundles));
+	}
+
+	public <T extends ResourceLoader & ProxyServices> MockCdiContainer(
+		String name, T loader, String... beanClasses) {
+
+		_bda = new MockBeanDeploymentArchive(name, loader, beanClasses);
+
+		List<Metadata<Extension>> extensions = new ArrayList<>();
+
+		ServiceLoader<Extension> sl = ServiceLoader.load(
+			Extension.class,
+			loader.getClassLoader(null));
+
+		sl.forEach(e -> extensions.add(meta(e)));
 
 		Deployment deployment = new MockContainerDeployment(extensions, _bda);
 
@@ -78,6 +130,21 @@ public class MockCdiContainer implements AutoCloseable {
 
 	public WeldBootstrap getBootstrap() {
 		return _bootstrap;
+	}
+
+	Metadata<Extension> meta(Extension e) {
+		return new Metadata<Extension>() {
+
+			@Override
+			public Extension getValue() {
+				return e;
+			}
+
+			@Override
+			public String getLocation() {
+				return e.toString();
+			}
+		};
 	}
 
 	private final BeanDeploymentArchive _bda;

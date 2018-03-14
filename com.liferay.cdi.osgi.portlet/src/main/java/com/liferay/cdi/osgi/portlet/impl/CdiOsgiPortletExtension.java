@@ -1,9 +1,11 @@
-package com.liferay.cdi.osgi.portlet;
+package com.liferay.cdi.osgi.portlet.impl;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Type;
 import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.Dictionary;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
@@ -17,12 +19,18 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.Destroyed;
 import javax.enterprise.context.Initialized;
 import javax.enterprise.event.Observes;
+import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.AfterDeploymentValidation;
 import javax.enterprise.inject.spi.AfterTypeDiscovery;
+import javax.enterprise.inject.spi.AnnotatedConstructor;
+import javax.enterprise.inject.spi.AnnotatedField;
+import javax.enterprise.inject.spi.AnnotatedMethod;
+import javax.enterprise.inject.spi.AnnotatedType;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.ProcessAnnotatedType;
 import javax.portlet.Portlet;
+import javax.portlet.PortletConfig;
 import javax.portlet.annotations.PortletApplication;
 import javax.portlet.annotations.PortletConfiguration;
 import javax.portlet.annotations.PortletConfigurations;
@@ -35,6 +43,9 @@ import org.apache.pluto.container.bean.processor.ConfigSummary;
 import org.apache.pluto.container.bean.processor.InvalidAnnotationException;
 import org.apache.pluto.container.bean.processor.PortletAnnotationRecognizer;
 import org.apache.pluto.container.bean.processor.PortletInvoker;
+import org.apache.pluto.container.bean.processor.PortletRequestScopedContext;
+import org.apache.pluto.container.bean.processor.PortletSessionScopedContext;
+import org.apache.pluto.container.bean.processor.PortletStateScopedContext;
 import org.apache.pluto.container.om.portlet.PortletDefinition;
 import org.apache.pluto.container.om.portlet.impl.ConfigurationHolder;
 import org.osgi.framework.BundleContext;
@@ -82,6 +93,17 @@ public class CdiOsgiPortletExtension implements Extension {
 		holder.setConfigSummary(configSummary);
 		holder.setMethodStore(methodStore);
 		par = new PAR(methodStore, configSummary);
+	}
+
+	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd) {
+		PortletSessionScopedContext pssc = new PortletSessionScopedContext();
+		abd.addContext(pssc);
+
+		PortletStateScopedContext pstsc = new PortletStateScopedContext();
+		abd.addContext(pstsc);
+
+		PortletRequestScopedContext prsc = new PortletRequestScopedContext();
+		abd.addContext(prsc);
 	}
 
 	void afterTypeDiscovery(@Observes AfterTypeDiscovery atd, BeanManager bm) {
@@ -169,6 +191,72 @@ public class CdiOsgiPortletExtension implements Extension {
 		}
 		catch (InvalidAnnotationException e) {
 			_log.error(e.getMessage(), e);
+		}
+	}
+
+	<X extends PortletConfig> void processPortletConfig(@Observes ProcessAnnotatedType<X> pat) {
+		final AnnotatedType<X> pcfg = pat.getAnnotatedType();
+		final Set<Type> types = new HashSet<Type>(pcfg.getTypeClosure());
+
+		if (types.contains(PortletConfig.class)) {
+			if (_log.isTraceEnabled()) {
+				_log.trace(
+					"PortletConfig '{}' base '{}'",
+					pcfg.getJavaClass().getCanonicalName(),
+					((Class<?>)pcfg.getBaseType()).getCanonicalName());
+			}
+
+			types.remove(PortletConfig.class);
+
+			AnnotatedType<X> wrapped = new AnnotatedType<X>() {
+
+				@Override
+				public <T extends Annotation> T getAnnotation(Class<T> arg0) {
+				return pcfg.getAnnotation(arg0);
+				}
+
+				@Override
+				public Set<Annotation> getAnnotations() {
+				return pcfg.getAnnotations();
+				}
+
+				@Override
+				public Type getBaseType() {
+				return pcfg.getBaseType();
+				}
+
+				@Override
+				public Set<Type> getTypeClosure() {
+				return types;
+				}
+
+				@Override
+				public boolean isAnnotationPresent(Class<? extends Annotation> arg0) {
+				return pcfg.isAnnotationPresent(arg0);
+				}
+
+				@Override
+				public Set<AnnotatedConstructor<X>> getConstructors() {
+				return pcfg.getConstructors();
+				}
+
+				@Override
+				public Set<AnnotatedField<? super X>> getFields() {
+				return pcfg.getFields();
+				}
+
+				@Override
+				public Class<X> getJavaClass() {
+				return pcfg.getJavaClass();
+				}
+
+				@Override
+				public Set<AnnotatedMethod<? super X>> getMethods() {
+				return pcfg.getMethods();
+				}
+			};
+
+			pat.setAnnotatedType(wrapped);
 		}
 	}
 

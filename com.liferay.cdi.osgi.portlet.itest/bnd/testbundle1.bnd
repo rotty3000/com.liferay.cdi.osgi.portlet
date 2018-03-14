@@ -1,0 +1,14 @@
+Export-Package: com.liferay.cdi.osgi.portlet.testbundle1.*
+X-Bean-Classes:\
+	${classes;\
+		INDIRECTLY_ANNOTATED;\
+			javax.decorator.Decorator|\
+			javax.enterprise.context.ApplicationScoped|\
+			javax.enterprise.context.ConversationScoped|\
+			javax.enterprise.context.Dependent|\
+			javax.enterprise.context.NormalScope|\
+			javax.enterprise.context.RequestScoped|\
+			javax.enterprise.context.SessionScoped|\
+			javax.enterprise.inject.Stereotype|\
+			javax.inject.Scope|\
+			javax.interceptor.Interceptor}
