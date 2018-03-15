@@ -8,6 +8,7 @@ public class BundleWrapper implements AutoCloseable {
 
 	public BundleWrapper(BundleContext bundleContext, String path) throws BundleException {
 		bundle = bundleContext.installBundle(path, getClass().getClassLoader().getResourceAsStream(path));
+		bundle.start();
 	}
 
 	@Override

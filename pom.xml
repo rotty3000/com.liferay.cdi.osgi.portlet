@@ -16,6 +16,7 @@
 
 	<modules>
 		<module>com.liferay.cdi.osgi.portlet</module>
+		<module>com.liferay.cdi.osgi.portlet.springtest.fragment</module>
 		<module>com.liferay.cdi.osgi.portlet.itest</module>
 	</modules>
 
@@ -47,13 +48,11 @@
 				<groupId>org.apache.portals.pluto</groupId>
 				<artifactId>pluto-container-api</artifactId>
 				<version>3.0.0</version>
-				<scope>provided</scope>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.portals.pluto</groupId>
 				<artifactId>pluto-container</artifactId>
 				<version>3.0.0</version>
-				<scope>provided</scope>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
