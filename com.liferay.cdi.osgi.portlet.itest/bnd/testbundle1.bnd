@@ -1,6 +1,7 @@
 Export-Package: com.liferay.cdi.osgi.portlet.testbundle1.*
+
 X-Bean-Classes:\
-	${classes;\
+	${classes;PUBLIC;\
 		INDIRECTLY_ANNOTATED;\
 			javax.decorator.Decorator|\
 			javax.enterprise.context.ApplicationScoped|\

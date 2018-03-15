@@ -10,6 +10,7 @@
 	</appender>
 
 	<logger name="org.apache.aries.cdi.container" level="ERROR"/>
+	<logger name="org.jboss.weld" level="DEBUG"/>
 
 	<root level="ERROR">
 		<appender-ref ref="STDOUT" />

@@ -10,6 +10,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.Destroyed;
 import javax.enterprise.context.Initialized;
+import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.spi.AfterBeanDiscovery;
 import javax.enterprise.inject.spi.AfterDeploymentValidation;
@@ -26,7 +28,9 @@ import javax.enterprise.inject.spi.AnnotatedConstructor;
 import javax.enterprise.inject.spi.AnnotatedField;
 import javax.enterprise.inject.spi.AnnotatedMethod;
 import javax.enterprise.inject.spi.AnnotatedType;
+import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
+import javax.enterprise.inject.spi.BeforeBeanDiscovery;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.ProcessAnnotatedType;
 import javax.portlet.Portlet;
@@ -38,6 +42,7 @@ import javax.portlet.annotations.PortletLifecycleFilter;
 import javax.portlet.annotations.PortletListener;
 import javax.portlet.annotations.PortletPreferencesValidator;
 
+import org.apache.pluto.container.bean.processor.AnnotatedConfigBean;
 import org.apache.pluto.container.bean.processor.AnnotatedMethodStore;
 import org.apache.pluto.container.bean.processor.ConfigSummary;
 import org.apache.pluto.container.bean.processor.InvalidAnnotationException;
@@ -58,7 +63,6 @@ public class CdiOsgiPortletExtension implements Extension {
 
 	private static final Logger _log = LoggerFactory.getLogger(CdiOsgiPortletExtension.class);
 
-	private final List<Entry<Portlet, Dictionary<String, Object>>> portlets = new CopyOnWriteArrayList<>();
 	private final List<ServiceRegistration<Portlet>> registrations = new CopyOnWriteArrayList<>();
 	private final Set<Class<?>> portletConfigurationBeanClasses = ConcurrentHashMap.newKeySet();
 	private final BundleContext bc = FrameworkUtil.getBundle(getClass()).getBundleContext();
@@ -95,6 +99,10 @@ public class CdiOsgiPortletExtension implements Extension {
 		par = new PAR(methodStore, configSummary);
 	}
 
+	void beforeBeanDiscovery(@Observes BeforeBeanDiscovery bbd) {
+		_log.debug("before bean discovery");
+	}
+
 	void afterBeanDiscovery(@Observes AfterBeanDiscovery abd) {
 		PortletSessionScopedContext pssc = new PortletSessionScopedContext();
 		abd.addContext(pssc);
@@ -106,7 +114,41 @@ public class CdiOsgiPortletExtension implements Extension {
 		abd.addContext(prsc);
 	}
 
+	void afterDeploymentValidation(@Observes AfterDeploymentValidation adv, BeanManager bm) {
+		Set<Bean<?>> beans = bm.getBeans(AnnotatedConfigBean.class);
+
+		@SuppressWarnings("unchecked")
+		Bean<AnnotatedConfigBean> bean = (Bean<AnnotatedConfigBean>)bm.resolve(beans);
+
+		if (bean != null) {
+			try {
+				CreationalContext<AnnotatedConfigBean> cc = bm.createCreationalContext(bean);
+
+				AnnotatedConfigBean acb = (AnnotatedConfigBean)bm.getReference(bean, AnnotatedConfigBean.class, cc);
+
+				acb.setMethodStore(methodStore);
+				acb.setSummary(configSummary);
+				acb.setStateScopedConfig(par.getStateScopedConfig());
+				acb.setSessionScopedConfig(par.getSessionScopedConfig());
+			}
+			catch (Exception e) {
+				_log.warn(e.getMessage(), e);
+			}
+		}
+		else {
+			_log.warn("AnnotatedConfigBean bean was null.");
+		}
+	}
+
 	void afterTypeDiscovery(@Observes AfterTypeDiscovery atd, BeanManager bm) {
+	}
+
+	void applicationScopedInitialized(
+		@Observes @Initialized(ApplicationScoped.class) Object ignore, BeanManager bm) {
+
+		par.getStateScopedConfig().activate(bm);
+		par.getSessionScopedConfig().activate(bm);
+
 		try {
 			holder.processConfigAnnotations(portletConfigurationBeanClasses);
 
@@ -130,30 +172,14 @@ public class CdiOsgiPortletExtension implements Extension {
 					_log.debug("Creating Portlet {}", pd.getPortletName());
 				}
 
-				portlets.add(
-					new AbstractMap.SimpleEntry<>(
-						new PortletInvoker(holder.getMethodStore(), pd.getPortletName()),
-						toDictionary(pd)));
+				Portlet portlet = new PortletInvoker(holder.getMethodStore(), pd.getPortletName());
+
+				registrations.add(register(bc, portlet, toDictionary(pd)));
 			}
 		}
 		catch (Exception e) {
 			_log.error(e.getMessage(), e);
 		}
-	}
-
-	void afterDeploymentValidation(@Observes AfterDeploymentValidation adv, BeanManager bm) {
-		par.getStateScopedConfig().activate(bm);
-		par.getSessionScopedConfig().activate(bm);
-	}
-
-	void applicationScopedInitialized(
-		@Observes @Initialized(ApplicationScoped.class) Object ignore, BundleContext bc) {
-
-		registrations.addAll(
-			portlets.stream().map(
-				entry -> register(bc, entry)
-			).collect(Collectors.toList())
-		);
 	}
 
 	void applicationScopedBeforeDestroyed(
@@ -261,9 +287,9 @@ public class CdiOsgiPortletExtension implements Extension {
 	}
 
 	ServiceRegistration<Portlet> register(
-		BundleContext bc, Entry<Portlet, Dictionary<String, Object>> entry) {
+		BundleContext bc, Portlet portlet, Dictionary<String, Object> properties) {
 
-		return bc.registerService(Portlet.class, entry.getKey(), entry.getValue());
+		return bc.registerService(Portlet.class, portlet, properties);
 	}
 
 	Dictionary<String, Object> toDictionary(PortletDefinition pd) {
@@ -271,7 +297,9 @@ public class CdiOsgiPortletExtension implements Extension {
 
 		Locale locale = Locale.getDefault();
 
-		properties.put("javax.portlet.cache-scope", pd.getCacheScope()); // Not supported by Liferay
+		Optional.ofNullable(pd.getCacheScope()).ifPresent(
+			cs -> properties.put("javax.portlet.cache-scope", cs)); // Not supported by Liferay
+
 		properties.put("javax.portlet.mime-type", pd.getConfiguredMimeTypes());
 		properties.put(
 			"javax.portlet.container-runtime-options",  // Not supported by Liferay
@@ -285,14 +313,20 @@ public class CdiOsgiPortletExtension implements Extension {
 				d -> d.getName() + ";" + d.getScope() + "," + d.getVersion()
 			).collect(Collectors.toList())
 		);
-		properties.put("javax.portlet.description", pd.getDescription(locale));
+
+		Optional.ofNullable(pd.getDescription(locale)).ifPresent(
+			d ->properties.put("javax.portlet.description", d));
+
 		properties.put(
 			"javax.portlet.descriptions",
 			pd.getDescriptions().stream().map(
 				d -> d.getText() + ";" + d.getLang() + "," + d.getLocale()
 			).collect(Collectors.toList())
 		);
-		properties.put("javax.portlet.display-name", pd.getDisplayName(locale));
+
+		Optional.ofNullable(pd.getDisplayName(locale)).map(dn ->
+			properties.put("javax.portlet.display-name", dn)).orElse(pd.getPortletName());
+
 		properties.put(
 			"javax.portlet.display-names",
 			pd.getDisplayNames().stream().map(
@@ -310,14 +344,22 @@ public class CdiOsgiPortletExtension implements Extension {
 		properties.put("javax.portlet.location", pd.getLocation());
 		properties.put("javax.portlet.max-file-size", pd.getMaxFileSize());
 		properties.put("javax.portlet.max-request-size", pd.getMaxRequestSize());
-		properties.put("javax.portlet.info.keywords", pd.getPortletInfo().getKeywords());
-		properties.put("javax.portlet.info.short-title", pd.getPortletInfo().getShortTitle());
-		properties.put("javax.portlet.info.title", pd.getPortletInfo().getTitle());
+
+		Optional.ofNullable(pd.getPortletInfo()).map(pi -> pi.getKeywords()).ifPresent(
+			kw -> properties.put("javax.portlet.info.keywords", kw));
+		Optional.ofNullable(pd.getPortletInfo()).map(pi -> pi.getShortTitle()).ifPresent(
+			st -> properties.put("javax.portlet.info.short-title", st));
+		Optional.ofNullable(pd.getPortletInfo()).map(pi -> pi.getTitle()).ifPresent(
+			t -> properties.put("javax.portlet.info.title", t));
+
 		properties.put("javax.portlet.name", pd.getPortletName());
 		// TODO figure out how to serialize these (xmlbind?)
 		//properties.put("javax.portlet.preferences", pd.getPortletPreferences());
 		//properties.put("javax.portlet.preferences", "classpath:<path_to_file_in_jar>");
-		properties.put("javax.portlet.resource-bundle", pd.getResourceBundle());
+
+		Optional.ofNullable(pd.getResourceBundle()).ifPresent(rb ->
+			properties.put("javax.portlet.resource-bundle", rb));
+
 		properties.put(
 			"javax.portlet.security-role-ref",
 			pd.getSecurityRoleRefs().stream().map(
